@@ -1,136 +1,123 @@
-<!DOCTYPE html>
-<html lang="es">
+<!doctype html>
+<html>
 <head>
   <meta charset="utf-8" />
-  <title>Geoportal – Supabase + PostGIS</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <style>
-    body { margin:0; font-family:sans-serif; }
-    #map { height: 90vh; width:100%; }
-    .panel {
-      padding:10px;
-      background:#f0f0f0;
-      display:flex;
-      gap:10px;
-      align-items:center;
-      border-bottom:2px solid #ccc;
-    }
-    input {
-      padding:4px;
-      width:400px;
-    }
-  </style>
+  <title>Geoportal Integrado</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-
-<div class="panel">
-  <div>
-    <strong>Project URL:</strong><br/>
-    <input id="url" value="" placeholder="https://xxx.supabase.co">
+  <!-- Header con título -->
+  <div class="header-title">
+    <h1>Geoportal Meteorológico</h1>
+    <p class="subtitle">Comunidad Valenciana - 14 Mayo 2023</p>
+    <p class="author">Por <span class="author-name">Javier Urrecho</span></p>
   </div>
-  <div>
-    <strong>API Key (anon):</strong><br/>
-    <input id="key" value="" placeholder="eyJhbGciOi...">
+
+  <div id="map"></div>
+  
+  <div id="pixelDisplay">
+    <div id="pixelUnit">-</div>
+    <div id="pixelDisplayValue">-</div>
   </div>
-  <button onclick="loadLayers()">Cargar capas</button>
-</div>
 
-<div id="map"></div>
+  <div class="measure-panel" id="measurePanel">
+    <h3>📏 Medir Distancia</h3>
+    <div class="measure-instruction" id="measureInstruction">Haz clic en dos puntos del mapa</div>
+    <div class="measure-result" id="measureResult">-</div>
+    <div class="btn-group" style="margin-top: 10px;">
+      <button id="clearMeasureBtn" style="flex: none; padding: 6px 12px;">Borrar</button>
+      <button id="closeMeasureBtn" style="flex: none; padding: 6px 12px;">Cerrar</button>
+    </div>
+  </div>
 
-<script>
-let map = L.map('map').setView([40, -3.7], 6);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: "© OpenStreetMap"
-}).addTo(map);
+  <div class="coords-panel">
+    <div class="coords-content">
+      <select class="projection-select" id="projectionSelect">
+        <option value="4326">EPSG:4326 (WGS84)</option>
+        <option value="25830">EPSG:25830 (UTM30N)</option>
+        <option value="3857">EPSG:3857 (Web Mercator)</option>
+      </select>
+      <div class="coord-row">
+        <span class="coord-label">Latitud/X:</span>
+        <span class="coord-value" id="coordX">0.0000</span>
+      </div>
+      <div class="coord-row">
+        <span class="coord-label">Longitud/Y:</span>
+        <span class="coord-value" id="coordY">0.0000</span>
+      </div>
+    </div>
+  </div>
 
-let supabase = null;
+  <div class="compass" id="compassBtn" title="Restablecer orientación">
+    <span>N<br>⬆</span>
+  </div>
+  
+  <div class="control-panel">
+    <div class="section">
+      <h3>🗺️ Capas Vectoriales</h3>
+      <div class="status" id="vectorStatus">Cargando datos...</div>
+      <div class="legend">
+        <div class="legend-title">Estaciones AEMET</div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+          <div style="width: 12px; height: 12px; border-radius: 50%; background: #58a6ff; border: 2px solid #238636;"></div>
+          <span style="font-size: 11px;">Estación meteorológica</span>
+        </div>
+      </div>
+    </div>
 
-function loadLayers() {
-  const url = document.getElementById("url").value.trim();
-  const key = document.getElementById("key").value.trim();
+    <div class="section">
+      <h3>🌍 Capas Raster</h3>
+      <div class="btn-group">
+        <button class="raster-btn" data-layer="20230514_meantemperature_comvalenciana">🌡️ Temp</button>
+        <button class="raster-btn" data-layer="20230514_precipitation_comvalenciana">🌧️ Precip</button>
+      </div>
+      <div class="status" id="rasterStatus">Selecciona una capa</div>
+      
+      <div class="legend hidden" id="rasterLegend">
+        <div class="legend-title" id="legendTitle"></div>
+        <div class="legend-gradient" id="legendGradient"></div>
+        <div class="legend-scale" id="legendScale"></div>
+      </div>
+      
+      <div class="slider-control" id="opacityControl">
+        <label>
+          Transparencia:
+          <input type="range" id="opacitySlider" min="0" max="100" value="80">
+          <span id="opacityValue">80%</span>
+        </label>
+      </div>
 
-  if (!url || !key) {
-    alert("Introduce PROJECT_URL y API_KEY");
-    return;
-  }
+      <div class="stats-panel" id="statsPanel">
+        <div class="stat-row"><span class="stat-label">Mín:</span><span class="stat-value" id="statMin">-</span></div>
+        <div class="stat-row"><span class="stat-label">Máx:</span><span class="stat-value" id="statMax">-</span></div>
+        <div class="stat-row"><span class="stat-label">Media:</span><span class="stat-value" id="statMean">-</span></div>
+        <canvas id="histogramCanvas" width="280" height="50"></canvas>
+      </div>
+    </div>
 
-  // Crear solo 1 instancia
-  if (!supabase) {
-    supabase = window.supabase.createClient(url, key);
-  }
+    <div class="section">
+      <h3>🗺️ Mapa Base</h3>
+      <div class="btn-group">
+        <button class="basemap-btn active" data-basemap="osm">OSM</button>
+        <button class="basemap-btn" data-basemap="satellite">Satélite</button>
+        <button class="basemap-btn" data-basemap="pnoa">PNOA</button>
+      </div>
+    </div>
 
-  loadVectorLayer();
-  loadRasterLayer();
-}
+    <div class="section">
+      <h3>🛠️ Herramientas</h3>
+      <div class="btn-group">
+        <button id="measureBtn" title="Medir distancia entre dos puntos">📏 Medir</button>
+      </div>
+    </div>
+  </div>
 
-/* ===============================
-   🚩 1. Cargar capa vectorial
-   hotspots_OREA_2025-03-05
-   =============================== */
-async function loadVectorLayer() {
-  const { data, error } = await supabase
-    .from("hotspots_OREA_2025-03-05")
-    .select("geom")
-    .limit(2000);
-
-  if (error) {
-    console.error(error);
-    alert("Error cargando vectorial");
-    return;
-  }
-
-  // Supabase ya devuelve GeoJSON como OBJETO → no hay JSON.parse
-  const geojson = {
-    type: "FeatureCollection",
-    features: data.map(row => ({
-      type: "Feature",
-      geometry: row.geom, 
-      properties: {}
-    }))
-  };
-
-  L.geoJSON(geojson, {
-    pointToLayer: (f, latlng) =>
-      L.circleMarker(latlng, {
-        radius: 6,
-        color: "red",
-        fillColor: "orange",
-        fillOpacity: 0.8
-      })
-  }).addTo(map);
-}
-
-/* ===============================
-   🟦 2. Cargar capa RASTER (si la función RPC existe)
-   b_orea_21
-   =============================== */
-function loadRasterLayer() {
-  const base = document.getElementById("url").value.replace(/\/$/, "");
-  const key = document.getElementById("key").value.trim();
-
-  // NOTA: Esta URL funciona si ya creaste la función RPC st_raster2png
-  const tileUrl = `${base}/rest/v1/rpc/st_raster2png?rid=1&x={x}&y={y}&z={z}`;
-
-  const raster = L.tileLayer(tileUrl, {
-    tileSize: 256,
-    opacity: 0.7,
-    attribution: "Raster – Supabase/PostGIS",
-    headers: {
-      "apikey": key,
-      "Authorization": "Bearer " + key
-    }
-  });
-
-  raster.addTo(map);
-}
-
-</script>
-
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.8.0/proj4.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4leaflet/1.0.2/proj4leaflet.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
