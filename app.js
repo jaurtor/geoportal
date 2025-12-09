@@ -1,8 +1,6 @@
-// Configuración de proyecciones
 proj4.defs("EPSG:3857", "+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext +no_defs");
 proj4.defs("EPSG:25830", "+proj=utm +zone=30 +ellps=GRS80 +units=m +no_defs");
 
-// Variables globales
 let map = L.map("map").setView([39.32, -0.5], 7);
 let currentRasterLayer = null;
 let currentBasemap = "osm";
@@ -17,7 +15,6 @@ let measurePoints = [];
 let measureLayer = L.layerGroup();
 let measureLine = null;
 
-// Bounds en EPSG:3857
 const boundsMap3857 = {
   "20230514_meantemperature_comvalenciana": [
     [-170029.5724387232, 4557921.9614732563],
@@ -29,7 +26,6 @@ const boundsMap3857 = {
   ]
 };
 
-// Configuración de capas raster
 const rasterConfig = {
   "20230514_meantemperature_comvalenciana": { 
     title: "Temperatura (°C)",
@@ -43,7 +39,6 @@ const rasterConfig = {
   }
 };
 
-// ==================== INICIALIZACIÓN MAPAS BASE ====================
 basemapLayers.osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap",
   maxZoom: 19
@@ -59,7 +54,6 @@ basemapLayers.pnoa = L.tileLayer.wms(
   { layers: "OI.OrthoimageCoverage", format: "image/jpeg", transparent: false, attribution: "© IGN" }
 );
 
-// ==================== CONTROLES ====================
 const scaleControl = L.control({ position: 'bottomright' });
 scaleControl.onAdd = function() {
   const div = L.DomUtil.create('div', 'scale-numeric');
@@ -76,7 +70,6 @@ scaleControl.onAdd = function() {
 };
 scaleControl.addTo(map);
 
-// ==================== EVENTOS DEL MAPA ====================
 map.on('mousemove', (e) => {
   let lat = e.latlng.lat;
   let lng = e.latlng.lng;
@@ -147,7 +140,6 @@ map.on('click', function(e) {
   }, 2000);
 });
 
-// ==================== FUNCIONES VECTORIALES ====================
 async function loadVectorLayers() {
   try {
     loadVectorLayer("101puntos_25830");
@@ -223,7 +215,6 @@ async function loadVectorLayer(tableName) {
   }
 }
 
-// ==================== FUNCIONES RASTER ====================
 async function loadRaster(tableName) {
   try {
     document.getElementById("rasterStatus").innerHTML = `<span class="spinner"></span> Cargando...`;
@@ -383,7 +374,6 @@ function drawHistogram(validValues, min, max) {
   canvas.classList.add('visible');
 }
 
-// ==================== FUNCIONES DE MEDICIÓN ====================
 function startMeasuring() {
   isMeasuring = true;
   measurePoints = [];
@@ -478,7 +468,6 @@ function addMeasurePoint(latlng) {
   }
 }
 
-// ==================== EVENT LISTENERS ====================
 document.querySelectorAll('.raster-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
     document.querySelectorAll('.raster-btn').forEach(b => b.classList.remove('active'));
@@ -517,5 +506,4 @@ document.getElementById("measureBtn").addEventListener("click", startMeasuring);
 document.getElementById("clearMeasureBtn").addEventListener("click", clearMeasurement);
 document.getElementById("closeMeasureBtn").addEventListener("click", stopMeasuring);
 
-// ==================== INICIALIZACIÓN ====================
 loadVectorLayers();
