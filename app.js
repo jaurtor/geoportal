@@ -70,18 +70,51 @@ scaleControl.onAdd = function() {
 };
 scaleControl.addTo(map);
 
-map.on('mousemove', (e) => {
-  let lat = e.latlng.lat;
-  let lng = e.latlng.lng;
+let lastLatLng = null;
+
+function updateCoordLabels() {
+  const labels = document.querySelectorAll(".coord-label");
+  if (currentProjection === "4326") {
+    labels[0].textContent = "Latitud:";
+    labels[1].textContent = "Longitud:";
+  } else {
+    labels[0].textContent = "X (Este):";
+    labels[1].textContent = "Y (Norte):";
+  }
+}
+
+function updateCoordDisplay(latlng) {
+  const coordX = document.getElementById("coordX");
+  const coordY = document.getElementById("coordY");
+
+  if (!latlng) {
+    coordX.textContent = "-";
+    coordY.textContent = "-";
+    return;
+  }
+
+  // Leaflet puede devolver longitudes fuera de [-180, 180] al desplazar el mapa
+  const wrapped = latlng.wrap();
+  const lat = wrapped.lat;
+  const lng = wrapped.lng;
 
   if (currentProjection === "3857") {
-    const coords = proj4("EPSG:4326", "EPSG:3857", [lng, lat]);
-    document.getElementById("coordX").textContent = coords[0].toFixed(2);
-    document.getElementById("coordY").textContent = coords[1].toFixed(2);
+    const c = proj4("EPSG:4326", "EPSG:3857", [lng, lat]);
+    coordX.textContent = c[0].toFixed(2);
+    coordY.textContent = c[1].toFixed(2);
+  } else if (currentProjection === "25830") {
+    const c = proj4("EPSG:4326", "EPSG:25830", [lng, lat]);
+    coordX.textContent = c[0].toFixed(2);
+    coordY.textContent = c[1].toFixed(2);
   } else {
-    document.getElementById("coordX").textContent = lat.toFixed(4);
-    document.getElementById("coordY").textContent = lng.toFixed(4);
+    coordX.textContent = lat.toFixed(6);
+    coordY.textContent = lng.toFixed(6);
   }
+}
+
+map.on('mousemove', (e) => {
+  lastLatLng = e.latlng;
+  updateCoordDisplay(lastLatLng);
 });
 
 map.on('click', function(e) {
@@ -500,7 +533,11 @@ document.getElementById("compassBtn").addEventListener("click", () => {
 
 document.getElementById("projectionSelect").addEventListener("change", (e) => {
   currentProjection = e.target.value;
+  updateCoordLabels();
+  updateCoordDisplay(lastLatLng);
 });
+
+updateCoordLabels();
 
 document.getElementById("measureBtn").addEventListener("click", startMeasuring);
 document.getElementById("clearMeasureBtn").addEventListener("click", clearMeasurement);
